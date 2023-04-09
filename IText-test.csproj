@@ -17,6 +17,9 @@
     <None Update="FreeSans.ttf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="logo_146.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="primitives.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

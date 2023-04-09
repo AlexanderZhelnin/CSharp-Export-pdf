@@ -1,18 +1,23 @@
 ﻿using drawer.Models;
 using iText.IO.Font;
+using iText.IO.Image;
 using iText.Kernel.Colors;
 using iText.Kernel.Font;
 using iText.Kernel.Geom;
 using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Action;
 using iText.Kernel.Pdf.Canvas;
+using iText.Kernel.Pdf.Filespec;
 using iText.Layout;
 using iText.Layout.Element;
 using Newtonsoft.Json;
 
 var dest = "d:\\pdf\\demo.pdf";
-var scale = 2.5f;
+var file = new FileInfo(dest);
+file.Directory?.Create();
 
+#region InitMap
+var scale = 2.5f;
 var json = File.ReadAllText(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"primitives.json"));
 var ls = JsonConvert.DeserializeObject<ILegend[]>(json)!;
 
@@ -23,17 +28,17 @@ ls = ls.ToList()
 var r = new Rect { Left = 1200, Bottom = 50, Right = 4000, Top = 2850 };
 
 var (left, bottom) = (r.Left, r.Bottom);
-
-var file = new FileInfo(dest);
-file.Directory?.Create();
+#endregion
 
 var docPdf = new PdfDocument(new PdfWriter(dest));
 var size = new PageSize((float)(r.Right - r.Left) * scale, (float)(r.Top - r.Bottom) * scale);
 var doc = new Document(docPdf, size);
 var page = docPdf.AddNewPage(size);
 
-var FONT = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FreeSans.ttf");
-var font = PdfFontFactory.CreateFont(FONT, PdfEncodings.IDENTITY_H);
+
+var font = PdfFontFactory.CreateFont(
+    System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FreeSans.ttf"),
+    PdfEncodings.IDENTITY_H);
 
 docPdf.AddFont(font);
 
@@ -43,8 +48,31 @@ DrawMap();
 
 BuildTable();
 
+doc.Add(new Paragraph("1 It wight to happy sighed into begun change which nor tales not from would run had plain bliss nor but")
+    .SetFontSize(100));
+
+var style = new Style()
+    .SetFontSize(50)
+    .SetBold()
+    .SetPaddingLeft(100)
+    .SetUnderline()
+    .SetOpacity(0.5f)
+    .SetFontColor(new DeviceRgb(255, 0, 0));
+
+doc.Add(new Paragraph("2 It wight to happy sighed into begun change which nor tales not from would run had plain bliss nor but").AddStyle(style));
+doc.Add(new Paragraph("3 It wight to happy sighed into begun change which nor tales not from would run had plain bliss nor but").AddStyle(style));
+doc.Add(new Paragraph("4 It wight to happy sighed into begun change which nor tales not from would run had plain bliss nor but").AddStyle(style));
+
+doc.Add(
+    new Paragraph()
+        .AddStyle(style)
+        .Add(new Div()
+            .Add(new Image(ImageDataFactory.Create(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logo_146.png")))))
+    );
+
 docPdf.Close();
 
+#region DrawMap
 void DrawMap()
 {
     foreach (var l in ls)
@@ -71,7 +99,7 @@ void DrawMap()
                     break;
                 case GrTypeEnum.Polygon:
                     if (cs.Length < 5) { continue; }
-
+                    if ((g.Rect.Right - g.Rect.Left) > 2000) { continue; }
 
                     canvas.MoveTo(cs[0], cs[1]);
 
@@ -124,7 +152,7 @@ void DrawMap()
                         var angle = Math.Atan2(dY, dX);
 
                         var p = new Paragraph();
-                        p.Add(new Link(g.Name, PdfAction.CreateGoTo("d:\\")).SetFont(font));
+                        p.Add(new Link(g.Name, PdfAction.CreateURI("file:///d:/")).SetFont(font));
                         p.SetFixedPosition((float)cX, (float)cY, 200);
                         p.SetRotationAngle(angle);
                         doc.Add(p);
@@ -135,7 +163,7 @@ void DrawMap()
                         var (x, y) = TranslateCoord((g.Rect.Left + g.Rect.Right) / 2, (g.Rect.Bottom + g.Rect.Top) / 2);
                         var p = new Paragraph();
 
-                        p.Add(new Link(g.Name, PdfAction.CreateGoTo("d:\\")).SetFont(font));
+                        p.Add(new Link(g.Name, PdfAction.CreateURI("file:///d:/")).SetFont(font));
                         p.SetFixedPosition((float)x, (float)y, 200);
                         doc.Add(p);
                     }
@@ -159,28 +187,35 @@ double[] Transform(double[] cs)
 
 (double x, double y) TranslateCoord(double x, double y) => ((x - left) * scale, (y - bottom) * scale);
 
-
+#endregion
 void BuildTable()
 {
-    var table = new Table(new float[] { 30, 100 })
-            .UseAllAvailableWidth();
+    var table = new Table(new float[] { 40, 100 })
+            .UseAllAvailableWidth()
+            .SetFontSize(30)
+            .SetFont(font);
 
-    var prs = ls.SelectMany(l => l.Primitives).Where(p => p.Name.Length > 10).Take(100);
+    var prs = ls
+        .SelectMany(l => l.Primitives)
+        .OrderByDescending(p => p.Name.Length)
+        .DistinctBy(p => p.Name)
+        .Take(50);
+
     var i = 0;
     foreach (var p in prs)
     {
-        var cell = new Cell();
-        cell.Add(new Paragraph((++i).ToString()));
-        table.AddCell(cell);
 
-        cell = new Cell();
-        var par = new Paragraph();
-        par.Add(new Link(p.Name, PdfAction.CreateGoTo("d:\\")).SetFont(font));
-        cell.Add(par);
-        table.AddCell(cell);
+        table
+            .AddCell(new Cell()
+                .Add(new Paragraph((++i).ToString()))
+                .SetTextAlignment(iText.Layout.Properties.TextAlignment.CENTER))
+
+            .AddCell(new Cell()
+                .Add(new Paragraph()
+                    .Add(new Link(p.Name.Replace("\n", "").Replace("\r", ""), PdfAction.CreateURI("https://www.youtube.com/channel/UCGntVzOD7faGCYbrUfd8PQg")))));
     }
 
-    table.SetFixedPosition(100, 300, 500);
+    table.SetFixedPosition(100, 3000, 500);
 
     doc.Add(table);
 }
